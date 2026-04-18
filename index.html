@@ -3,122 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ghost-Anime | Zero Backend</title>
+    <title>Ghost-Anime | CORS-Bypass Build</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <style>
-        .glass { background: rgba(23, 23, 23, 0.8); backdrop-filter: blur(10px); }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: #06b6d4; border-radius: 10px; }
-    </style>
 </head>
-<body class="bg-[#0a0a0a] text-zinc-100 font-sans min-h-screen">
+<body class="bg-[#080808] text-zinc-100 font-sans">
 
-    <nav class="glass sticky top-0 z-50 border-b border-zinc-800 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-        <h1 class="text-2xl font-black tracking-tighter text-cyan-500">GHOST-ANIME</h1>
-        <div class="flex w-full md:w-1/2 gap-2">
-            <input id="animeInput" type="text" placeholder="Search (e.g., one-piece, naruto)" 
-                   class="bg-zinc-900 border border-zinc-700 w-full px-4 py-2 rounded-md focus:ring-2 focus:ring-cyan-500 outline-none">
-            <button onclick="searchAndLoad()" class="bg-cyan-600 hover:bg-cyan-500 px-6 py-2 rounded-md font-bold transition">SCAN</button>
+    <nav class="p-4 border-b border-cyan-900/30 flex flex-col md:flex-row justify-between items-center bg-black/80 backdrop-blur-xl sticky top-0 z-50">
+        <h1 class="text-2xl font-black text-cyan-500 tracking-widest">GHOST-ANIME</h1>
+        <div class="flex w-full md:w-1/3 gap-2 mt-4 md:mt-0">
+            <input id="animeSearch" type="text" placeholder="Search (e.g. Naruto)" class="bg-zinc-900 border border-zinc-700 px-4 py-2 rounded-lg w-full outline-none focus:border-cyan-500">
+            <button onclick="startSearch()" class="bg-cyan-600 px-6 py-2 rounded-lg font-bold hover:bg-cyan-500 transition">SEARCH</button>
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto p-4 md:p-8">
-        <div class="bg-black rounded-xl overflow-hidden shadow-2xl border border-zinc-800">
-            <div class="relative pt-[56.25%] bg-zinc-900">
-                <video id="videoPlayer" class="absolute top-0 left-0 w-full h-full" controls autoplay playsinline></video>
-            </div>
+    <main class="max-w-6xl mx-auto p-4 mt-6">
+        <div class="aspect-video bg-black rounded-2xl overflow-hidden border border-zinc-800 shadow-[0_0_50px_rgba(6,182,212,0.1)]">
+            <video id="mainPlayer" class="w-full h-full" controls autoplay></video>
         </div>
-
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2">
-                <h2 id="currentTitle" class="text-4xl font-black italic text-cyan-400 mb-2 uppercase">Ready for Mission...</h2>
-                <p id="description" class="text-zinc-400 text-lg leading-relaxed">
-                    Zero-Backend architecture active. Fetching data directly from edge mirrors to bypass local network stalls.
-                </p>
-            </div>
-
-            <div class="glass border border-zinc-800 p-4 rounded-xl max-h-[500px] overflow-y-auto">
-                <h3 class="text-xl font-bold mb-4 border-b border-zinc-800 pb-2">EPISODES</h3>
-                <div id="episodeList" class="grid grid-cols-4 gap-2">
-                    </div>
-            </div>
+        <div class="mt-8">
+            <h2 id="titleDisplay" class="text-3xl font-black text-cyan-400 italic uppercase">System Offline</h2>
+            <div id="epGrid" class="grid grid-cols-4 md:grid-cols-10 gap-2 mt-6"></div>
         </div>
     </main>
 
     <script>
-        const video = document.getElementById('videoPlayer');
+        const video = document.getElementById('mainPlayer');
         const hls = new Hls();
-        const API_BASE = "https://api.amvstr.me/api/v2";
+        
+        // SURGICAL MOVE: Adding the CORS Proxy you just unlocked
+        const PROXY = "https://cors-anywhere.herokuapp.com/";
+        const API_BASE = "https://consumet-api-production-e685.up.railway.app/anime/gogoanime";
 
-        // Global state for episode switching
-        let currentAnimeId = "";
-
-        async function searchAndLoad() {
-            const query = document.getElementById('animeInput').value.trim().toLowerCase().replace(/\s+/g, '-');
-            if (!query) return;
-
-            const statusTitle = document.getElementById('currentTitle');
-            const epContainer = document.getElementById('episodeList');
-            
-            statusTitle.innerText = `Establishing Uplink...`;
-            epContainer.innerHTML = "";
+        async function startSearch() {
+            const query = document.getElementById('animeSearch').value;
+            const status = document.getElementById('titleDisplay');
+            status.innerText = "Scanning Mirrors...";
 
             try {
-                // Step 1: Search for metadata
-                const searchRes = await fetch(`${API_BASE}/search?q=${query}`);
-                const searchData = await searchRes.json();
-
-                if (searchData.data && searchData.data.length > 0) {
-                    const anime = searchData.data[0];
-                    currentAnimeId = anime.id;
-                    statusTitle.innerText = `SYNCED: ${anime.title.english || anime.title.romaji}`;
-                    
-                    // Simple logic for episodes: Amvstr IDs often follow the anime-id-episode-X pattern
-                    // We generate 50 buttons as a placeholder; real sites fetch an 'info' endpoint
-                    for (let i = 1; i <= 50; i++) {
-                        const btn = document.createElement('button');
-                        btn.innerText = i;
-                        btn.className = "bg-zinc-800 hover:bg-cyan-600 p-2 rounded text-sm font-bold transition";
-                        btn.onclick = () => playEpisode(i);
-                        epContainer.appendChild(btn);
-                    }
-
-                    // Auto-play Episode 1
-                    playEpisode(1);
-                } else {
-                    statusTitle.innerText = "Target Lost: 404";
+                // We wrap the URL in the PROXY to bypass CORS blocks
+                const res = await fetch(`${PROXY}${API_BASE}/${query}`);
+                const data = await res.json();
+                
+                if (data.results && data.results.length > 0) {
+                    const anime = data.results[0];
+                    status.innerText = `ID: ${anime.id}`;
+                    fetchInfo(anime.id);
                 }
             } catch (err) {
-                statusTitle.innerText = "ENGINE STALL: Connection Blocked";
-                console.error(err);
+                status.innerText = "Proxy Error. Refresh the CORS-Anywhere page.";
             }
         }
 
-        async function playEpisode(epNum) {
-            const statusTitle = document.getElementById('currentTitle');
-            const epId = `${currentAnimeId}-episode-${epNum}`;
-            
+        async function fetchInfo(id) {
             try {
-                const res = await fetch(`${API_BASE}/stream/${epId}`);
-                const result = await res.json();
+                const res = await fetch(`${PROXY}${API_BASE}/info/${id}`);
+                const data = await res.json();
+                
+                const grid = document.getElementById('epGrid');
+                grid.innerHTML = "";
 
-                if (result.data && result.data.nspl.main) {
-                    const streamUrl = result.data.nspl.main;
-                    
-                    if (Hls.isSupported()) {
-                        hls.loadSource(streamUrl);
-                        hls.attachMedia(video);
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
-                    } else {
-                        video.src = streamUrl;
-                    }
-                } else {
-                    alert("Source down for this episode. Try a different server.");
+                data.episodes.forEach(ep => {
+                    const btn = document.createElement('button');
+                    btn.innerText = ep.number;
+                    btn.className = "bg-zinc-800 hover:bg-cyan-600 p-2 rounded font-bold transition text-xs";
+                    btn.onclick = () => playEp(ep.id);
+                    grid.appendChild(btn);
+                });
+
+                // Play Ep 1 automatically
+                playEp(data.episodes[0].id);
+            } catch (err) { console.error(err); }
+        }
+
+        async function playEp(epId) {
+            try {
+                const res = await fetch(`${PROXY}${API_BASE}/watch/${epId}`);
+                const data = await res.json();
+                const source = data.sources.find(s => s.quality === 'default') || data.sources[0];
+
+                if (Hls.isSupported()) {
+                    hls.loadSource(source.url);
+                    hls.attachMedia(video);
                 }
-            } catch (err) {
-                alert("VIT Network Block Detected. Switch to Hotspot.");
-            }
+            } catch (err) { alert("Source Blocked even with Proxy."); }
         }
     </script>
 </body>
